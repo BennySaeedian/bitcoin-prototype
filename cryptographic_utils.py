@@ -1,3 +1,5 @@
+from hashlib import sha256
+
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
     PublicFormat,
@@ -33,7 +35,7 @@ def verify(message: bytes, signature: Signature, public_key: PublicKey) -> bool:
         return False
 
 
-def gen_keys() -> tuple[PrivateKey, PublicKey]:
+def generate_keys() -> tuple[PrivateKey, PublicKey]:
     """
     generates a private key and a and its corresponding public key
     The keys are returned in bytes format to allow them to be serialized easily
@@ -49,3 +51,10 @@ def gen_keys() -> tuple[PrivateKey, PublicKey]:
         format=PublicFormat.Raw,
     )
     return PrivateKey(priv_key_bytes), PublicKey(pub_key_bytes)
+
+
+def crypto_hash(input_: bytes) -> bytes:
+    """
+    uses SHA256 to cryptographically hash inputs
+    """
+    return sha256(input_).digest()

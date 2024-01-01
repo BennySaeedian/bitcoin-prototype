@@ -1,6 +1,4 @@
-import hashlib
-from typing import List
-
+from cryptographic_utils import crypto_hash
 from custom_typing import BlockHash
 from transaction import Transaction
 
@@ -13,7 +11,7 @@ class Block:
     def __init__(
             self,
             prev_block_hash: BlockHash,
-            transactions: List[Transaction],
+            transactions: list[Transaction],
     ):
         self.prev_block_hash: BlockHash = prev_block_hash
         self.transactions: List[Transaction] = transactions
@@ -28,12 +26,12 @@ class Block:
         tx_ids: bytes = b''.join(tx.get_id() for tx in self.transactions)
         # also, concat the previous block hash
         block_identifier: bytes = tx_ids + self.prev_block_hash
-        # hash the block using sha256
-        block_hash: bytes = hashlib.sha256(block_identifier).digest()
+        # hash the block using cryptographic hash function
+        block_hash: bytes = crypto_hash(block_identifier)
         # convert to BlockHash which is subtype of bytes
         return BlockHash(block_hash)
 
-    def get_transactions(self) -> List[Transaction]:
+    def get_transactions(self) -> list[Transaction]:
         """
         returns the list of transactions in this block.
         """

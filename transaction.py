@@ -1,6 +1,6 @@
-import hashlib
 from typing import Optional
 
+from cryptographic_utils import crypto_hash
 from custom_typing import PublicKey, TxID, Signature
 
 
@@ -38,7 +38,7 @@ class Transaction:
                 + self.signature
         )
         # hash the identifier using sha256
-        tx_hash: bytes = hashlib.sha256(tx_identifier).digest()
+        tx_hash: bytes = crypto_hash(tx_identifier)
         # convert to TxID which is subtype of bytes
         return TxID(tx_hash)
 

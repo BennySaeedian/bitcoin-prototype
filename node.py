@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from constants import Constants
 from custom_typing import TxID, PublicKey, BlockHash
-from cryptographic_utils import sign, verify, gen_keys
+from cryptographic_utils import sign, verify, generate_keys
 from data_classes import ForkData, NodeState
 from transaction import Transaction
 from block import Block
@@ -24,7 +24,7 @@ class Node:
         we can think of a node as the combination of a de-centralized bank
         and a crypto-wallet
         """
-        self._private_key, self._public_key = gen_keys()
+        self._private_key, self._public_key = generate_keys()
         self._state = NodeState()
         self._connections: set[Node] = set()
         # efficiency related data-structures:
@@ -346,5 +346,5 @@ class Node:
         if not has_valid_structure:
             return False
 
-        
+
 
