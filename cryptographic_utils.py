@@ -16,10 +16,10 @@ from custom_typing import PrivateKey, Signature, PublicKey
 
 def sign(message: bytes, private_key: PrivateKey) -> Signature:
     """signs the given message using the given private key"""
-    pk_object = Ed25519PrivateKey.from_private_bytes(
+    private_key_object = Ed25519PrivateKey.from_private_bytes(
         private_key
     )
-    return Signature(pk_object.sign(message))
+    return Signature(private_key_object.sign(message))
 
 
 def verify(message: bytes, signature: Signature, public_key: PublicKey) -> bool:
