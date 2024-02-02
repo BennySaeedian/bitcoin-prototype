@@ -1,7 +1,7 @@
 from block import Block
 from constants import Constants
 from cryptographic_utils import verify
-from custom_typing import TxID, BlockHash
+from custom_typing import TransactionID, BlockHash
 from transaction import Transaction
 
 
@@ -9,7 +9,7 @@ def validate_transaction_pre_mempool_access(
         transaction: Transaction,
         utxo: list[Transaction],
         mempool: list[Transaction],
-        txid_to_tx: dict[TxID, Transaction],
+        txid_to_tx: dict[TransactionID, Transaction],
 ) -> bool:
     """
     checks whether the specified coin in the transaction

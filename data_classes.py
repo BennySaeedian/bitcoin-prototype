@@ -35,3 +35,15 @@ class ForkData:
     fork_block_hash: BlockHash
     new_branch: list[Block]
     new_branch_hashes: list[BlockHash]
+
+    def get_potential_forked_chain_len(self, main_hash_chain: list[BlockHash]) -> int:
+        """
+        determines the potential length of the blockchain if all blocks in a new branch
+        are valid and successfully appended to the current main blockchain.
+        This method is employed to assess whether it's worthwhile to attempt validating a new
+        branch and if it has the potential to surpass the current main blockchain.
+        notice, this function assumes main_hash_chain has the genesis hash as the
+        first block hash
+        """
+        common_hashes_len = main_hash_chain.index(self.fork_block_hash) + 1
+        return common_hashes_len + len(self.new_branch)

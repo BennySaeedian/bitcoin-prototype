@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from constants import Constants
-from custom_typing import TxID, PublicKey, BlockHash
+from custom_typing import TransactionID, PublicKey, BlockHash
 from cryptographic_utils import sign, verify, generate_keys
 from data_classes import ForkData, NodeState
 from transaction import Transaction
@@ -28,7 +28,7 @@ class Node:
         self._state = NodeState()
         self._connections: set[Node] = set()
         # efficiency related data-structures:
-        self._txid_to_tx: dict[TxID, Transaction] = dict()
+        self._txid_to_tx: dict[TransactionID, Transaction] = dict()
 
     def connect(self, other: Node) -> None:
         """
@@ -117,7 +117,7 @@ class Node:
         transactions that create money (with no inputs)
         are not placed in the mempool, and not propagated.
         """
-        is_valid_transaction = validate_transaction_pre_mempool_access(
+        is_valid_transaction: bool = validate_transaction_pre_mempool_access(
             transaction=transaction,
             utxo=self._state.utxo,
             mempool=self._state.mempool,
@@ -171,21 +171,24 @@ class Node:
         # else, we need to find the forking point, it can be the tip of the
         # current chain or in the middle of it
         try:
-            fork_data = self._find_forking_point(
+            fork_data: ForkData = self._find_forking_point(
                 block_hash=block_hash,
                 sender=sender,
             )
         except ValueError:
             return
-        new_branch_potential_len = (
-            # the len which is similar to the current blockchain
-                curr_hash_chain.index(fork_data.fork_block_hash) + 1
-                + len(fork_data.new_branch)  # with the len of the new branch
+        # check if this new branch has the potential to beat the current
+        # main chain given the new branch is valid
+        potential_new_chain_len = fork_data.get_potential_forked_chain_len(
+            curr_hash_chain
         )
-        # this check is before validating the blocks
-        # if this new branch is not longer no need to check it
-        if new_branch_potential_len <= len(curr_hash_chain):
+        if potential_new_chain_len <= len(curr_hash_chain):
             return
+        # now validate the new branch and get the updated state
+        new_state = self._reorg_blockchain(fork_data)
+        if len(self._state.blockchain) < len(new_state.blockchain):
+            self._state = new_state
+            self._publish_latest_block()
 
     def _add_new_tx_to_mempool(self, transaction: Transaction) -> None:
         """
@@ -304,7 +307,7 @@ class Node:
         """
         rolls back the state to the provided fork-hash
         notice that if the provided hash is the tip of the current blockchain
-        this function has no effect since no rerolls are needed
+        this function has no effect since no re-rolls are needed
         """
         current_hash = self.get_latest_hash()
         while current_hash != fork_hash:
@@ -346,5 +349,37 @@ class Node:
         if not has_valid_structure:
             return False
 
+    def _introduce_valid_transaction_into_state(
+            self,
+            transaction: Transaction,
+            state: NodeState,
+    ) -> None:
+        """
+        Updates state internals upon new valid transaction
+        """
+        transaction_id = transaction.get_id()
+        # Once a transaction entered the blockchain, it can be removed from the mempool
+        # also, any other transaction which tries to spend this transaction
+        # input is invalid, so let's remove it
+        state.mempool = [
+            t for t in state.mempool
+            if t != transaction and t.input != transaction.input
+        ]
+        # every valid transaction spends an input unless it is a coinbase tx
+        # lets remove this input from the utxo
+        if not transaction.is_coinbase:
+            state.utxo = [t for t in state.utxo if t.get_id() != transaction.input]
+        # every valid transaction introduces new inputs which can be spent
+        state.utxo.append(transaction)
+        # lastly, extend the txid to tx mapping
+        self._txid_to_tx[transaction_id] = transaction
 
-
+    def _publish_latest_block(self):
+        """
+        informs all other connections that a new block has been introduced
+        """
+        for connection in self._connections:
+            connection.get_introduced_to_new_block(
+                block_hash=self.get_latest_hash(),
+                sender=self
+            )

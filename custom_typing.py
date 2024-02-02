@@ -10,4 +10,4 @@ Signature = NewType(name='Signature', tp=bytes)
 # this will be the hash of a block
 BlockHash = NewType(name='BlockHash', tp=bytes)
 # this will be a hash of a transaction
-TxID = NewType(name="TxID", tp=bytes)
+TransactionID = NewType(name="TransactionID", tp=bytes)

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from cryptographic_utils import crypto_hash
-from custom_typing import PublicKey, TxID, Signature
+from custom_typing import PublicKey, TransactionID, Signature
 
 
 class Transaction:
@@ -14,19 +14,19 @@ class Transaction:
     def __init__(
             self,
             output: PublicKey,
-            tx_input: Optional[TxID],
+            tx_input: Optional[TransactionID],
             signature: Signature
     ) -> None:
         # the node which receives the coin
         self.output: PublicKey = output
         # the coin being spent (can be None for coinbase txs)
-        self.input: Optional[TxID] = tx_input
+        self.input: Optional[TransactionID] = tx_input
         # signature created with a private key of the payer
         # the message is the payee and the coin being spent (output + input)
         # other nodes will verify that indeed the payer signed the tx
         self.signature: Signature = signature
 
-    def get_id(self) -> TxID:
+    def get_id(self) -> TransactionID:
         """
         returns the identifier of this transaction.
         that is the sha256 digest of the transaction contents
@@ -39,8 +39,8 @@ class Transaction:
         )
         # hash the identifier using sha256
         tx_hash: bytes = crypto_hash(tx_identifier)
-        # convert to TxID which is subtype of bytes
-        return TxID(tx_hash)
+        # convert to TransactionID which is subtype of bytes
+        return TransactionID(tx_hash)
 
     @property
     def is_coinbase(self) -> bool:
