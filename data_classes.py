@@ -12,7 +12,7 @@ class NodeState:
     """
     data structure used to store the internal state of a node
     """
-    # committed blocks in the current states blockchain
+    # committed blocks in the current state's blockchain
     blockchain: list[Block] = field(default_factory=list)
     # unspent transaction outputs, coins which can be spent
     utxo: list[Transaction] = field(default_factory=list)
@@ -29,19 +29,19 @@ class NodeState:
 @dataclass
 class ForkData:
     """
-    data structure is employed to store the necessary information
+    data structure which stores the necessary information
     whenever the blockchain experiences a fork with multiple branches
     """
     fork_block_hash: BlockHash
-    new_branch: list[Block]
-    new_branch_hashes: list[BlockHash]
+    new_branch: list[Block] = field(default_factory=list)
+    new_branch_hashes: list[BlockHash] = field(default_factory=list)
 
     def get_potential_forked_chain_len(self, main_hash_chain: list[BlockHash]) -> int:
         """
-        determines the potential length of the blockchain if all blocks in a new branch
+        determines the potential length of the blockchain if all blocks in the new branch
         are valid and successfully appended to the current main blockchain.
-        This method is employed to assess whether it's worthwhile to attempt validating a new
-        branch and if it has the potential to surpass the current main blockchain.
+        this method is employed to assess whether it's worthwhile to attempt validating
+        a new branch and if it has the potential to surpass the current main blockchain.
         notice, this function assumes main_hash_chain has the genesis hash as the
         first block hash
         """

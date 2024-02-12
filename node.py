@@ -10,19 +10,11 @@ from validations import validate_transaction_pre_mempool_access, validate_block_
 
 
 class Node:
-    """
-    a node which participates in a de-centralized economy
-    """
+    """represents a participator in a de-centralized economy"""
 
     def __init__(self) -> None:
         """
-        creates a new node with an empty mempool and no connections to others.
-        blocks mined by this node will reward the miner with a single new coin,
-        created out of thin air and associated with the mining reward address.
-        each node manages its own mempool, and
-        its own copy of the blockchain and UTxO set.
-        we can think of a node as the combination of a de-centralized bank
-        and a crypto-wallet
+        creates a new node with a public address and empty state
         """
         self._private_key, self._public_key = generate_keys()
         self._state = NodeState()
@@ -180,7 +172,7 @@ class Node:
         # check if this new branch has the potential to beat the current
         # main chain given the new branch is valid
         potential_new_chain_len = fork_data.get_potential_forked_chain_len(
-            curr_hash_chain
+            main_hash_chain=curr_hash_chain
         )
         if potential_new_chain_len <= len(curr_hash_chain):
             return
@@ -274,16 +266,16 @@ class Node:
             state: NodeState,
     ) -> Block:
         """
-        rolls back the latest block the given state, returns the new state
-        and the rolled-back block
+        rolls back the latest block the given state and returns it
         """
         latest_block = state.blockchain.pop()
         block_transactions = latest_block.get_transactions()
         block_transaction_ids = [t.get_id() for t in block_transactions]
-        # remember the given block is the tip of the current
-        # blockchain, which means every output there is unspent
-        # and hence must be in the utxo
-        # if we roll back this block we need to remove them from the given utxo
+        # remember every transaction can be seen as a coin, or as a transaction
+        # output that the receiver can spend. but if we revert this block
+        # we need to deny the given coin to every receiver who gained the coin
+        # via this block
+
         state.utxo = [t for t in state.utxo if t not in block_transactions]
         # now, let's add back the inputs that were spent in this block
         # excluding coinbase transactions
@@ -311,7 +303,7 @@ class Node:
         """
         current_hash = self.get_latest_hash()
         while current_hash != fork_hash:
-            state, rolled_back_block = self._rollback_latest_block(state)
+            rolled_back_block = self._rollback_latest_block(state)
             current_hash = rolled_back_block.get_prev_block_hash()
 
     def _add_new_branch_to_state(

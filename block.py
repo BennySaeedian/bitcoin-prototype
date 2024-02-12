@@ -14,7 +14,7 @@ class Block:
             transactions: list[Transaction],
     ):
         self.prev_block_hash: BlockHash = prev_block_hash
-        self.transactions: List[Transaction] = transactions
+        self.transactions: list[Transaction] = transactions
 
     def get_hash(self) -> BlockHash:
         """

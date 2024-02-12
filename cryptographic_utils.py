@@ -38,7 +38,7 @@ def verify(message: bytes, signature: Signature, public_key: PublicKey) -> bool:
 def generate_keys() -> tuple[PrivateKey, PublicKey]:
     """
     generates a private key and a and its corresponding public key
-    The keys are returned in bytes format to allow them to be serialized easily
+    the keys are returned in bytes format to allow them to be serialized easily
     """
     private_key = Ed25519PrivateKey.generate()
     private_key_bytes = private_key.private_bytes(

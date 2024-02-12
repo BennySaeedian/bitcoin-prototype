@@ -6,7 +6,7 @@ class Constants:
     simple namespace which stores the constants used in project
     """
     # every block is required to have a prev hash
-    # this is the unique hash the every genesis block will have
+    # this is the unique hash that every genesis block will have
     GENESIS_BLOCK_PREV = BlockHash(b"Genesis")
     # The maximal amount of transactions a block can include
     BLOCK_SIZE = 10
