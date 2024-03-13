@@ -20,7 +20,7 @@ class Node:
         self._state = NodeState()
         self._connections: set[Node] = set()
         # efficiency related data-structures:
-        self._txid_to_tx: dict[TransactionID, Transaction] = dict()
+        self._id_to_transaction: dict[TransactionID, Transaction] = dict()
 
     def connect(self, other: Node) -> None:
         """
@@ -32,7 +32,7 @@ class Node:
         but nodes instantly notify of their latest block to each other
         """
         if other.get_address() == self._public_key:
-            raise Exception("Can not connect a node to itself")
+            raise ValueError("Can not connect a node to itself")
         # if the two nodes are already connected, bounce
         if other in self._connections:
             return
@@ -111,9 +111,8 @@ class Node:
         """
         is_valid_transaction: bool = validate_transaction_pre_mempool_access(
             transaction=transaction,
-            utxo=self._state.utxo,
-            mempool=self._state.mempool,
-            txid_to_tx=self._txid_to_tx,
+            state=self._state,
+            id_to_transaction=self._id_to_transaction,
         )
         if not is_valid_transaction:
             return False
@@ -191,7 +190,7 @@ class Node:
         # add it to the mempool list
         self._state.mempool.append(transaction)
         # map it to its txid for efficient retrival
-        self._txid_to_tx[transaction.get_id()] = transaction
+        self._id_to_transaction[transaction.get_id()] = transaction
 
     def _publish_new_transaction(self, transaction: Transaction) -> None:
         """
@@ -280,7 +279,7 @@ class Node:
         # now, let's add back the inputs that were spent in this block
         # excluding coinbase transactions
         curr_block_spent_transactions: list[Transaction] = [
-            self._txid_to_tx[t.input] for t in block_transactions
+            self._id_to_transaction[t.input] for t in block_transactions
             if not t.is_coinbase
         ]
         state.utxo += curr_block_spent_transactions
@@ -322,6 +321,7 @@ class Node:
                 block_hash=block_hash,
                 state=state,
             )
+            # if we encounter an invalid block in the branch we trim the branch
             if not is_valid_block:
                 return
 
@@ -332,7 +332,7 @@ class Node:
             state: NodeState,
     ) -> bool:
         """
-        TODO
+        In charge of validating a block and update the given state
         """
         has_valid_structure = validate_block_structure(
             block=block,
@@ -340,6 +340,30 @@ class Node:
         )
         if not has_valid_structure:
             return False
+        # while validating the transaction we will use a temp state
+        # this is because we want to update the given state only once every transaction
+        # passed the validation test
+        temp_state = state.copy()
+        for transaction in block.get_transactions():
+            # no need to validate coinbase transactions
+            if not transaction.is_coinbase:
+                is_valid_transaction = validate_transaction_pre_mempool_access(
+                    transaction=transaction,
+                    state=temp_state,
+                    id_to_transaction=self._id_to_transaction
+                )
+                # if any of the transactions is invalid, the whole block is invalid
+                if not is_valid_transaction:
+                    return False
+            # if we got here the transaction is valid
+            self._introduce_valid_transaction_into_state(
+                transaction=transaction,
+                state=temp_state
+            )
+        # if we got here the whole block is valid
+        state.utxo = temp_state.utxo
+        state.mempool = temp_state.mempool
+        state.blockchain = state.blockchain + [block]
 
     def _introduce_valid_transaction_into_state(
             self,
@@ -364,7 +388,7 @@ class Node:
         # every valid transaction introduces new inputs which can be spent
         state.utxo.append(transaction)
         # lastly, extend the txid to tx mapping
-        self._txid_to_tx[transaction_id] = transaction
+        self._id_to_transaction[transaction_id] = transaction
 
     def _publish_latest_block(self):
         """

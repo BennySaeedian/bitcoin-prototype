@@ -2,14 +2,14 @@ from block import Block
 from constants import Constants
 from cryptographic_utils import verify
 from custom_typing import TransactionID, BlockHash
+from data_classes import NodeState
 from transaction import Transaction
 
 
 def validate_transaction_pre_mempool_access(
         transaction: Transaction,
-        utxo: list[Transaction],
-        mempool: list[Transaction],
-        txid_to_tx: dict[TransactionID, Transaction],
+        state: NodeState,
+        id_to_transaction: dict[TransactionID, Transaction],
 ) -> bool:
     """
     checks whether the specified coin in the transaction
@@ -25,13 +25,13 @@ def validate_transaction_pre_mempool_access(
     if not is_valid_type:
         return False
     # the input field of each transaction specifies which
-    # coin is being spent, get it
-    coin_being_spent: Transaction = txid_to_tx.get(transaction.input)
-    # if there is not such coin, invalid coin is being spent
-    if coin_being_spent in None:
+    # transaction is being spent, let's get it
+    input_being_spent: Transaction = id_to_transaction.get(transaction.input)
+    # if there is not such transaction, invalid coin is being spent
+    if input_being_spent in None:
         return False
     # we also need to verify that the payer is the one who singed the tx
-    coin_being_spent_owner = coin_being_spent.output
+    input_owner_public_key = input_being_spent.output
     does_signature_match: bool = verify(
         # the txid being spent concatenated with the target is the message
         message=transaction.input + transaction.output,
@@ -39,19 +39,19 @@ def validate_transaction_pre_mempool_access(
         signature=transaction.signature,
         # coin_being_spent.output is the owner of the coin being spent
         # since he is the one who got the coin
-        public_key=coin_being_spent_owner
+        public_key=input_owner_public_key
 
     )
     # if it failed tries to spend money he does not own
     if not does_signature_match:
         return False
-    # we check that the coin is unspent in the given utxo set
-    coin_is_unspent = transaction.input in [t.get_id() for t in utxo]
-    if not coin_is_unspent:
+    # we check that the input is unspent in the given utxo set
+    input_is_unspent = transaction.input in [t.get_id() for t in state.utxo]
+    if not input_is_unspent:
         return False
     # finally, we make sure there is no other transaction which tires
     # to spend this coin in the mempool
-    return transaction.input not in [tx.input for tx in mempool]
+    return transaction.input not in [tx.input for tx in state.mempool]
 
 
 def validate_block_structure(
