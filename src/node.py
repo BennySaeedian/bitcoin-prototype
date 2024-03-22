@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from constants import Constants
 from custom_typing import TransactionID, PublicKey, BlockHash
-from cryptographic_utils import sign, verify, generate_keys
+from cryptographic_utils import generate_keys
 from data_classes import ForkData, NodeState
 from transaction import Transaction
 from block import Block
@@ -24,12 +24,9 @@ class Node:
 
     def connect(self, other: Node) -> None:
         """
-        connects this node to another node for block and transaction updates.
-        connections are bi-directional,
-        so the other node is connected to this one as well.
-        raises an exception if asked to connect to itself.
-        The connection itself does not trigger updates about the mempool,
-        but nodes instantly notify of their latest block to each other
+        establishes a bi-directional connection between nodes for block and transaction
+        updates, preventing connection to itself, without immediate mempool updates
+        but ensuring instant block notifications
         """
         if other.get_address() == self._public_key:
             raise ValueError("Can not connect a node to itself")
@@ -47,8 +44,7 @@ class Node:
 
     def disconnect_from(self, other: Node) -> None:
         """
-        disconnects this node from the other node
-        if the two were not connected, then nothing happens
+        disconnects this node from the other node and vise versa, idempotent
         """
         # bounce if there is no connection
         if other not in self._connections:
@@ -99,15 +95,10 @@ class Node:
 
     def add_transaction_to_mempool(self, transaction: Transaction) -> bool:
         """
-        this function inserts the given transaction to the mempool.
-        it will return False iff any of the following conditions hold:
-        (i) the transaction is invalid (the signature fails)
-        (ii) the source doesn't have the coin that it tries to spend
-        (iii) there is contradicting tx in the mempool.
-        if the transaction is added successfully,
-        then it is also sent to neighboring nodes.
-        transactions that create money (with no inputs)
-        are not placed in the mempool, and not propagated.
+        this function adds the provided transaction to the mempool,
+        returning false if the transaction is invalid,
+        the source lacks the necessary funds, or if there's a conflicting transaction
+        in the mempool. valid transactions are propagated to neighboring nodes.
         """
         is_valid_transaction: bool = validate_transaction_pre_mempool_access(
             transaction=transaction,
@@ -117,7 +108,7 @@ class Node:
         if not is_valid_transaction:
             return False
         # else, can enter the mempool
-        self._add_new_tx_to_mempool(transaction)
+        self._add_new_transaction_to_mempool(transaction)
         # notify the others
         self._publish_new_transaction(transaction=transaction)
         return True
@@ -128,32 +119,14 @@ class Node:
             sender: Node
     ) -> None:
         """
-        this method is used by a node's connection to inform it that it has
-        learned of a new block or created a new one
-        if the block is unknown to the current Node, The block is requested.
-        we assume the sender of the message is specified, so that the node can
-        choose to request this block if it wishes to do so.
-        (if it is part of a longer unknown chain, these blocks are requested
-        as well, until reaching a known block).
-        upon receiving new blocks, they are processed and checked for validity
-        (check all signatures, hashes, block size , etc.).
-        if the block is on the longest chain, the mempool and utxo
-        change accordingly. ties, i.e., chains of similar length to that of
-        this node are not adopted.
-        if the block is indeed the tip of the longest chain,
-        a notification of this block is sent to the neighboring nodes of
-        this node. no need to notify of previous blocks -- the nodes will
-        fetch them if needed.
-        a reorg may be triggered by this block's introduction.
-        In this case the utxo is rolled back to the split point,
-        and then rolled forward along the new branch.
-        Be careful - the new branch may contain invalid blocks.
-        these and blocks that point to them should not be accepted to
-        the blockchain but earlier valid blocks may still form a longer chain
-        the mempool is similarly emptied of transactions that cannot
-        be executed now.
-        transactions that were rolled back and can still be executed are
-        re-introduced into the mempool if they do not conflict.
+        handles the reception of new blocks by a node's connection,
+        requesting unknown blocks and processing received blocks for validity.
+        if the received block is on the longest chain, it triggers adjustments to the
+        mempool and utxo, and notifies neighboring nodes.
+        possible blockchain reorganizations are managed by rolling back the utxo to the
+        split point and updating along the new branch, with caution for potentially
+        invalid blocks. conflicting transactions are removed from the mempool during
+        this process.
         """
         curr_hash_chain = self._get_blockchain_hashes()
         # if we know this block no need to do anything
@@ -177,15 +150,15 @@ class Node:
             return
         # now validate the new branch and get the updated state
         new_state = self._reorg_blockchain(fork_data)
+        # if the new branch surpasses the current one in terms of size, adopt it
         if len(self._state.blockchain) < len(new_state.blockchain):
             self._state = new_state
+            # notify the others
             self._publish_latest_block()
 
-    def _add_new_tx_to_mempool(self, transaction: Transaction) -> None:
+    def _add_new_transaction_to_mempool(self, transaction: Transaction) -> None:
         """
-        This method should be called upon every new tx that enters
-        the mempool. This method is in charge of updating all the inner
-        data structures
+        updates internal state upon new transaction arrival in the mempool
         """
         # add it to the mempool list
         self._state.mempool.append(transaction)
@@ -194,9 +167,7 @@ class Node:
 
     def _publish_new_transaction(self, transaction: Transaction) -> None:
         """
-        idempotent method which notifies the connections of the node that
-        a new transaction has been added to the mempool, should be called
-        upon the introduction of every new transaction
+        notify other node connections of new mempool transactions, idempotent.
         """
         transaction_id = transaction.get_id()
         for node in self._connections:
@@ -206,7 +177,7 @@ class Node:
 
     def _get_blockchain_hashes(self) -> list[BlockHash]:
         """
-        returns the ordered list of the current blockchain hashes
+        returns the ordered list of the current state's blockchain hashes
         """
         return (
                 [Constants.GENESIS_BLOCK_PREV]

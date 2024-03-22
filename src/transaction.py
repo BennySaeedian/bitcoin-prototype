@@ -1,7 +1,7 @@
 from typing import Optional
 
-from cryptographic_utils import crypto_hash
-from custom_typing import PublicKey, TransactionID, Signature
+from src.cryptographic_utils import crypto_hash
+from src.custom_typing import PublicKey, TransactionID, Signature
 
 
 class Transaction:

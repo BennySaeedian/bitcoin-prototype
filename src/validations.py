@@ -1,8 +1,8 @@
-from block import Block
-from constants import Constants
-from cryptographic_utils import verify
-from custom_typing import TransactionID, BlockHash
-from data_classes import NodeState
+from src.block import Block
+from src.constants import Constants
+from src.cryptographic_utils import verify
+from src.custom_typing import TransactionID, BlockHash
+from src.data_classes import NodeState
 from transaction import Transaction
 
 
