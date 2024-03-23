@@ -1,7 +1,6 @@
 import pytest
 
-from src import Node
-from src.constants import Constants
+from src import *
 
 
 def test_node_at_init(alice: Node) -> None:
