@@ -27,7 +27,7 @@ class Node:
 
     def connect(self, other: Node) -> None:
         """
-        establishes a bi-directional connection between nodes for block and transaction
+        establishes a bidirectional connection between nodes for block and transaction
         updates, preventing connection to itself, without immediate mempool updates
         but ensuring instant block notifications
         """
@@ -36,7 +36,7 @@ class Node:
         # if the two nodes are already connected, bounce
         if other in self._connections:
             return
-        # else, do bi-directional connection between the two
+        # else, do bidirectional connection between the two
         self._connections.add(other)
         other.connect(other=self)
         # notify the other node, other node will notify upon his connect
@@ -182,9 +182,7 @@ class Node:
             self._create_coinbase() for _ in range(Constants.NUM_OF_COINBASE_PER_BLOCK)
         ]
         # include non coinbase transactions from the mempool
-        mempool_transactions = (
-            self._state.mempool[:Constants.NUM_OF_MEMPOOL_TXS_PER_BLOCK]
-        )
+        mempool_transactions = self._state.mempool[:Constants.NUM_OF_MEMPOOL_TXS_PER_BLOCK]
         new_block = Block(
             prev_block_hash=self.get_latest_hash(),
             transactions=coinbase_transactions + mempool_transactions
@@ -224,7 +222,7 @@ class Node:
         """
         # add it to the mempool list
         self._state.mempool.append(transaction)
-        # map it to its txid for efficient retrival
+        # map it to its id for efficient retrieval
         self._id_to_transaction[transaction.get_id()] = transaction
         # notify the others
         self._publish_new_transaction(transaction=transaction)
@@ -243,10 +241,8 @@ class Node:
         """
         returns the ordered list of the current state's blockchain hashes
         """
-        return (
-                [Constants.GENESIS_BLOCK_PREV]
-                + [b.get_hash() for b in self._state.blockchain]
-        )
+        block_hashes = [b.get_hash() for b in self._state.blockchain]
+        return [Constants.GENESIS_BLOCK_PREV] + block_hashes
 
     def _find_forking_point(
             self,
@@ -320,9 +316,7 @@ class Node:
         state.utxo += curr_block_spent_transactions
         # additionally, we need to remove transactions in the mempool
         # which try to spend coins which were introduced in the latest block
-        state.mempool = [
-            t for t in state.mempool if t.input not in block_transaction_ids
-        ]
+        state.mempool = [t for t in state.mempool if t.input not in block_transaction_ids]
         return latest_block
 
     def _rollback_state_to_forking_point(
@@ -422,7 +416,7 @@ class Node:
             state.utxo = [t for t in state.utxo if t.get_id() != transaction.input]
         # every valid transaction introduces new inputs which can be spent
         state.utxo.append(transaction)
-        # lastly, extend the txid to tx mapping
+        # lastly, extend the id to tx mapping
         self._id_to_transaction[transaction_id] = transaction
 
     def _publish_latest_block(self) -> None:
@@ -498,7 +492,7 @@ class Node:
 
     def _get_unspent_owned_transaction(self) -> Optional[Transaction]:
         """
-        Gets unspent coin which is not frozen
+        gets an available unspent transaction of this node
         """
         owned_funds = self._get_my_unspent_transactions()
         owned_funds_ids = [t.get_id() for t in owned_funds]
