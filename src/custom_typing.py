@@ -11,3 +11,11 @@ Signature = NewType(name='Signature', tp=bytes)
 BlockHash = NewType(name='BlockHash', tp=bytes)
 
 TransactionID = NewType(name="TransactionID", tp=bytes)
+
+__all__ = [
+    "PrivateKey",
+    "PublicKey",
+    "Signature",
+    "BlockHash",
+    "TransactionID",
+]

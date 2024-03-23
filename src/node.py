@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import secrets
+from typing import Optional
+
 from constants import Constants
 from custom_typing import TransactionID, PublicKey, BlockHash
-from cryptographic_utils import generate_keys
+from cryptographic_utils import generate_keys, sign
 from data_classes import ForkData, NodeState
 from transaction import Transaction
 from block import Block
@@ -72,6 +75,12 @@ class Node:
         """
         return self._state.mempool
 
+    def get_utxo(self) -> list[Transaction]:
+        """
+        returns this node unspent transaction outputs
+        """
+        return self._state.utxo
+
     def get_latest_hash(self) -> BlockHash:
         """
         this function returns the last block hash known to this node,
@@ -93,6 +102,14 @@ class Node:
         # If the block doesn't exist, a ValueError is raised.
         raise ValueError("Block does not exist in node's blockchain")
 
+    def get_balance(self):
+        """
+        returns the number of outputs that this node owns according to its view of
+        the blockchain. outputs that the node owned and sent away will still be considered
+        as part of the balance until the spending transaction is in a valid block
+        """
+        return len(self._get_my_unspent_transactions())
+
     def add_transaction_to_mempool(self, transaction: Transaction) -> bool:
         """
         this function adds the provided transaction to the mempool,
@@ -109,8 +126,6 @@ class Node:
             return False
         # else, can enter the mempool
         self._add_new_transaction_to_mempool(transaction)
-        # notify the others
-        self._publish_new_transaction(transaction=transaction)
         return True
 
     def get_introduced_to_new_block(
@@ -156,14 +171,63 @@ class Node:
             # notify the others
             self._publish_latest_block()
 
+    def mine_block(self) -> BlockHash:
+        """
+        creates a single block containing transactions from the mempool
+        and one additional coinbase(s), notifying all connections upon creation,
+        and returning the new block hash
+        """
+        # create new coinbase txs which will be included as a fee to the miner
+        coinbase_transactions = [
+            self._create_coinbase() for _ in range(Constants.NUM_OF_COINBASE_PER_BLOCK)
+        ]
+        # include non coinbase transactions from the mempool
+        mempool_transactions = (
+            self._state.mempool[:Constants.NUM_OF_MEMPOOL_TXS_PER_BLOCK]
+        )
+        new_block = Block(
+            prev_block_hash=self.get_latest_hash(),
+            transactions=coinbase_transactions + mempool_transactions
+        )
+        # update state upon newly introduced block
+        self._introduce_valid_block_into_state(state=self._state, block=new_block)
+        # return the new block hash
+        return new_block.get_hash()
+
+    def create_transaction(self, target_public_key: PublicKey) -> Optional[Transaction]:
+        """
+        returns a signed transactions which moves funds
+        """
+        unspent_transaction = self._get_unspent_owned_transaction()
+        # return None if no available funds
+        if not unspent_transaction:
+            return
+        # else, sign a new transaction
+        new_transaction = self._sign_new_transaction(
+            unspent_transaction_id=unspent_transaction.get_id(),
+            target_public_key=target_public_key
+        )
+        self._add_new_transaction_to_mempool(new_transaction)
+        return new_transaction
+
+    def clear_mempool(self) -> None:
+        """
+        clears the mempool of this node, all transactions waiting to be entered
+        into the next block are gone.
+        """
+        self._state.mempool = []
+
     def _add_new_transaction_to_mempool(self, transaction: Transaction) -> None:
         """
-        updates internal state upon new transaction arrival in the mempool
+        updates internal state upon new transaction arrival in the mempool, notifies
+        the other connections
         """
         # add it to the mempool list
         self._state.mempool.append(transaction)
         # map it to its txid for efficient retrival
         self._id_to_transaction[transaction.get_id()] = transaction
+        # notify the others
+        self._publish_new_transaction(transaction=transaction)
 
     def _publish_new_transaction(self, transaction: Transaction) -> None:
         """
@@ -342,7 +406,7 @@ class Node:
             state: NodeState,
     ) -> None:
         """
-        Updates state internals upon new valid transaction
+        Updates state internals upon new valid transaction which is on the blockchain
         """
         transaction_id = transaction.get_id()
         # Once a transaction entered the blockchain, it can be removed from the mempool
@@ -361,7 +425,7 @@ class Node:
         # lastly, extend the txid to tx mapping
         self._id_to_transaction[transaction_id] = transaction
 
-    def _publish_latest_block(self):
+    def _publish_latest_block(self) -> None:
         """
         informs all other connections that a new block has been introduced
         """
@@ -370,3 +434,80 @@ class Node:
                 block_hash=self.get_latest_hash(),
                 sender=self
             )
+
+    def _get_my_unspent_transactions(self) -> list[Transaction]:
+        """
+        returns a subset of this node's utxo, the outputs owned by this node
+        """
+        return [t for t in self._state.utxo if t.output == self.get_address()]
+
+    def _create_coinbase(self) -> Transaction:
+        """
+        creates a coinbase transaction which grants money to this node,
+        which potentially mined a block
+        """
+        random_bits = secrets.token_bytes(Constants.SIGNATURE_LEN)
+        coinbase = Transaction(
+            # this node will get this coin
+            output=self._public_key,
+            # coinbase transaction have no previous coin which they spend
+            input=None,
+            # fill in random bytes instead of signature
+            signature=random_bits,
+        )
+        return coinbase
+
+    def _introduce_valid_block_into_state(self, state: NodeState, block: Block) -> None:
+        """
+        used whenever the node itself mines a block, and wants to update it state
+        and notify the other node connections
+        """
+        # introduce the block transactions
+        for transaction in block.get_transactions():
+            self._introduce_valid_transaction_into_state(
+                transaction=transaction,
+                state=state
+            )
+        # append the new block to the blockchain and publish it
+        state.blockchain.append(block)
+        self._publish_latest_block()
+
+    def _sign_new_transaction(
+            self,
+            unspent_transaction_id: TransactionID,
+            target_public_key: PublicKey
+    ) -> Transaction:
+        """
+        signs a new transaction to target which spends the given unspent coin
+        """
+        signature = sign(
+            # which output is being spent and who is the legal holder now
+            message=unspent_transaction_id + target_public_key,
+            # signed by the spender
+            private_key=self._private_key
+        )
+        transaction = Transaction(
+            # the target which get the funds
+            output=target_public_key,
+            # which output is being spent
+            input=unspent_transaction_id,
+            # singed by the private key of the owner with appropriate informative message
+            signature=signature
+        )
+        return transaction
+
+    def _get_unspent_owned_transaction(self) -> Optional[Transaction]:
+        """
+        Gets unspent coin which is not frozen
+        """
+        owned_funds = self._get_my_unspent_transactions()
+        owned_funds_ids = [t.get_id() for t in owned_funds]
+        # frozen funds are inputs which are in the mempool, but not a block
+        # gather all the owned funds which are already promised to other node
+        frozen_funds = [
+            self._id_to_transaction[t.input] for t in self._state.mempool
+            if t.input in owned_funds_ids
+        ]
+        available_funds = set(owned_funds).difference(frozen_funds)
+        if available_funds:
+            return available_funds.pop()

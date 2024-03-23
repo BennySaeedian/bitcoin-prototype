@@ -14,13 +14,13 @@ class Transaction:
     def __init__(
             self,
             output: PublicKey,
-            tx_input: Optional[TransactionID],
+            input: Optional[TransactionID],
             signature: Signature
     ) -> None:
         # the node which receives the coin
         self.output: PublicKey = output
-        # the coin being spent (can be None for coinbase txs)
-        self.input: Optional[TransactionID] = tx_input
+        # the transaction being spent (can be None for coinbase txs)
+        self.input: Optional[TransactionID] = input
         # signature created with a private key of the payer
         # the message is the payee and the coin being spent (output + input)
         # other nodes will verify that indeed the payer signed the tx
