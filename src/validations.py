@@ -28,7 +28,7 @@ def validate_transaction_pre_mempool_access(
     # transaction is being spent, let's get it
     input_being_spent: Transaction = id_to_transaction.get(transaction.input)
     # if there is not such transaction, invalid coin is being spent
-    if input_being_spent in None:
+    if input_being_spent is None:
         return False
     # we also need to verify that the payer is the one who singed the tx
     input_owner_public_key = input_being_spent.output
