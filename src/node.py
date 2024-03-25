@@ -423,8 +423,8 @@ class Node:
         """
         informs all other connections that a new block has been introduced
         """
-        for connection in self._connections:
-            connection.get_introduced_to_new_block(
+        for node in self._connections:
+            node.get_introduced_to_new_block(
                 block_hash=self.get_latest_hash(),
                 sender=self
             )
@@ -503,5 +503,4 @@ class Node:
             if t.input in owned_funds_ids
         ]
         available_funds = set(owned_funds).difference(frozen_funds)
-        if available_funds:
-            return available_funds.pop()
+        return available_funds.pop() if available_funds else None

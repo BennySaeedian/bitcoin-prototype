@@ -53,8 +53,8 @@ def generate_keys() -> tuple[PrivateKey, PublicKey]:
     return PrivateKey(private_key_bytes), PublicKey(public_key_bytes)
 
 
-def crypto_hash(input_: bytes) -> bytes:
+def crypto_hash(input: bytes) -> bytes:
     """
     uses SHA256 to cryptographically hash inputs
     """
-    return sha256(input_).digest()
+    return sha256(input).digest()

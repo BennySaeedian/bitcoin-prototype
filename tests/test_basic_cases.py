@@ -73,3 +73,7 @@ def test_moving_funds_and_balances(alice: Node, bob: Node) -> None:
     assert alice.get_mempool() == []
     assert alice.get_balance() == Constants.NUM_OF_COINBASE_PER_BLOCK
     assert bob.get_balance() == Constants.NUM_OF_COINBASE_PER_BLOCK + 1
+
+
+def test_reorgs(alice: Node, bob: Node, charlie: Node) -> None:
+    pass
