@@ -59,7 +59,7 @@ def test_moving_funds_and_balances(alice: Node, bob: Node) -> None:
     alice.mine_block()
     assert alice.get_balance() == Constants.NUM_OF_COINBASE_PER_BLOCK
     transaction = alice.create_transaction(bob.get_address())
-    assert transaction
+    assert transaction is not None
     assert transaction.input == alice.get_utxo()[0].get_id()
     assert transaction.output == bob.get_address()
     assert transaction in alice.get_mempool()
@@ -75,5 +75,6 @@ def test_moving_funds_and_balances(alice: Node, bob: Node) -> None:
     assert bob.get_balance() == Constants.NUM_OF_COINBASE_PER_BLOCK + 1
 
 
-def test_reorgs(alice: Node, bob: Node, charlie: Node) -> None:
-    pass
+def test_self_connections_fail(alice: Node) -> None:
+    with pytest.raises(Exception):
+        alice.connect(alice)

@@ -12,7 +12,7 @@ class Block:
             self,
             prev_block_hash: BlockHash,
             transactions: list[Transaction],
-    ):
+    ) -> None:
         self.prev_block_hash: BlockHash = prev_block_hash
         self.transactions: list[Transaction] = transactions
 
