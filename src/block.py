@@ -40,4 +40,3 @@ class Block:
     def get_prev_block_hash(self) -> BlockHash:
         """Gets the hash of the previous block"""
         return self.prev_block_hash
-    
