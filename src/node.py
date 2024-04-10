@@ -309,7 +309,7 @@ class Node:
         state.utxo = [t for t in state.utxo if t not in block_transactions]
         # now, let's add back the inputs that were spent in this block
         # excluding coinbase transactions
-        curr_block_spent_transactions: list[Transaction] = [
+        curr_block_spent_transactions = [
             self._id_to_transaction[t.input] for t in block_transactions
             if not t.is_coinbase
         ]
