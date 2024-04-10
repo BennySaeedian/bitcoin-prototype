@@ -1,5 +1,5 @@
 from src.block import Block
-from src.constants import Constants
+from src.constants import *
 from src.cryptographic_utils import verify
 from src.custom_typing import TransactionID, BlockHash
 from src.data_classes import NodeState
@@ -20,7 +20,7 @@ def validate_transaction_pre_mempool_access(
     # make sure it passes the sanity test of every input
     is_valid_type = (
             type(transaction.input) == bytes
-            and len(transaction.input) == Constants.SHA256_DIGEST_LEN
+            and len(transaction.input) == SHA256_DIGEST_LEN
     )
     if not is_valid_type:
         return False
@@ -33,7 +33,7 @@ def validate_transaction_pre_mempool_access(
     # we also need to verify that the payer is the one who singed the tx
     input_owner_public_key = input_being_spent.output
     does_signature_match: bool = verify(
-        # the txid being spent concatenated with the target is the message
+        # the transaction ID being spent concatenated with the target is the message
         message=transaction.input + transaction.output,
         # the signature should match the payer's PK
         signature=transaction.signature,
@@ -70,8 +70,8 @@ def validate_block_structure(
             # validate the calculated hash matches the one requested
             block.get_hash() == block_hash,
             # validate the size of a block
-            len(transactions) <= Constants.BLOCK_SIZE,
+            len(transactions) <= BLOCK_SIZE,
             # validate number of coinbase transactions
-            len(coinbase_txs) == Constants.NUM_OF_COINBASE_PER_BLOCK
+            len(coinbase_txs) == NUM_OF_COINBASE_PER_BLOCK
         ]
     )

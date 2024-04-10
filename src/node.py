@@ -3,7 +3,7 @@ from __future__ import annotations
 import secrets
 from typing import Optional
 
-from constants import Constants
+from constants import *
 from custom_typing import TransactionID, PublicKey, BlockHash
 from cryptographic_utils import generate_keys, sign
 from data_classes import ForkData, NodeState
@@ -88,7 +88,7 @@ class Node:
         """
         return (
             self._state.blockchain[-1].get_hash() if self._state.blockchain
-            else Constants.GENESIS_BLOCK_PREV
+            else GENESIS_BLOCK_PREV
         )
 
     def get_block(self, block_hash: BlockHash) -> Block:
@@ -179,10 +179,10 @@ class Node:
         """
         # create new coinbase txs which will be included as a fee to the miner
         coinbase_transactions = [
-            self._create_coinbase() for _ in range(Constants.NUM_OF_COINBASE_PER_BLOCK)
+            self._create_coinbase() for _ in range(NUM_OF_COINBASE_PER_BLOCK)
         ]
         # include non coinbase transactions from the mempool
-        mempool_transactions = self._state.mempool[:Constants.NUM_OF_MEMPOOL_TXS_PER_BLOCK]
+        mempool_transactions = self._state.mempool[:NUM_OF_MEMPOOL_TXS_PER_BLOCK]
         new_block = Block(
             prev_block_hash=self.get_latest_hash(),
             transactions=coinbase_transactions + mempool_transactions
@@ -242,7 +242,7 @@ class Node:
         returns the ordered list of the current state's blockchain hashes
         """
         block_hashes = [b.get_hash() for b in self._state.blockchain]
-        return [Constants.GENESIS_BLOCK_PREV] + block_hashes
+        return [GENESIS_BLOCK_PREV] + block_hashes
 
     def _find_forking_point(
             self,
@@ -363,35 +363,31 @@ class Node:
         """
         In charge of validating a block and update the given state
         """
+        # not, this also checks the number of coinbase transactions
         has_valid_structure = validate_block_structure(
             block=block,
             block_hash=block_hash
         )
         if not has_valid_structure:
             return False
-        # while validating the transaction we will use a temp state
-        # this is because we want to update the given state only once every transaction
-        # passed the validation test
-        temp_state = state.copy()
+        # now validate the block non-coinbase transactions
+        has_valid_transactions = all(
+            validate_transaction_pre_mempool_access(
+                transaction=transaction,
+                state=state,
+                id_to_transaction=self._id_to_transaction
+            )
+            for transaction in block.get_transactions() if not transaction.is_coinbase
+        )
+        if not has_valid_transactions:
+            return False
+        # if all the transaction are valid, we can update the state accordingly
         for transaction in block.get_transactions():
-            # no need to validate coinbase transactions
-            if not transaction.is_coinbase:
-                is_valid_transaction = validate_transaction_pre_mempool_access(
-                    transaction=transaction,
-                    state=temp_state,
-                    id_to_transaction=self._id_to_transaction
-                )
-                # if any of the transactions is invalid, the whole block is invalid
-                if not is_valid_transaction:
-                    return False
-            # if we got here the transaction is valid
             self._introduce_valid_transaction_into_state(
                 transaction=transaction,
-                state=temp_state
+                state=state
             )
-        # if we got here the whole block is valid
-        state.utxo = temp_state.utxo
-        state.mempool = temp_state.mempool
+        # finally, we extend the blockchain, by one
         state.blockchain = state.blockchain + [block]
 
     def _introduce_valid_transaction_into_state(
@@ -440,7 +436,7 @@ class Node:
         creates a coinbase transaction which grants money to this node,
         which potentially mined a block
         """
-        random_bits = secrets.token_bytes(Constants.SIGNATURE_LEN)
+        random_bits = secrets.token_bytes(SIGNATURE_LEN)
         coinbase = Transaction(
             # this node will get this coin
             output=self._public_key,
